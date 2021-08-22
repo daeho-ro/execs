@@ -110,9 +110,9 @@ func RunExecuteCommand(svc *ecs.Client, cluster string, task string, runtime str
 	// cmd.Stdin = os.Stdin
 
     cmd := exec.Command("session-manager-plugin", string(session), "ap-northeast-2", "StartSession", "", string(targetJson), "https://ssm.ap-northeast-2.amazonaws.com")
-    cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
 	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+    cmd.Stderr = os.Stderr
 
 	// sigs := make(chan os.Signal, 1)
 	// signal.Notify(sigs, os.Interrupt, syscall.SIGINT)
