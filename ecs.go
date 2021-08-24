@@ -7,9 +7,9 @@ import (
 	"log"
     "os"
     "os/exec"
-    // "os/signal"
+    "os/signal"
 	"strings"
-    // "syscall"
+    "syscall"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -23,12 +23,14 @@ type Execs struct {
     runtime  string
     region   string
     endpoint string
+    err      error
 }
 
 func GetEcsSession(p *Execs) {
 
     cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(p.region))
     if err != nil {
+        p.err = err
         log.Fatalf("Unable to load SDK config, %v", err)
     }
 
@@ -39,6 +41,7 @@ func GetCluster(p *Execs) {
 
     listClusters, err := p.client.ListClusters(context.TODO(), &ecs.ListClustersInput{})
     if err != nil {
+        p.err = err
         log.Fatalf("Failed to list ecs clusters, %v", err)
     }
 
@@ -57,6 +60,7 @@ func GetTask(p *Execs) {
         Cluster: &p.cluster,
     })
     if err != nil {
+        p.err = err
         log.Fatalf("Failed to list ecs tasks, %v", err)
     }
 
@@ -65,15 +69,18 @@ func GetTask(p *Execs) {
         Cluster: &p.cluster,
     })
     if err != nil {
+        p.err = err
         log.Fatalf("Failed to describe ecs tasks, %v", err)
     }
 
     var tasks []string
     for _, task := range listTaskDetails.Tasks {
-        taskId := strings.Split(*task.TaskArn, "/")[2]
-        taskDefinition := strings.Split(*task.TaskDefinitionArn, "/")[1]
-        runtime := *task.Containers[0].RuntimeId
-        tasks = append(tasks, fmt.Sprintf("%s | %s | %s", taskId, taskDefinition, runtime))
+        if *task.LastStatus == "RUNNING" {
+            taskId := strings.Split(*task.TaskArn, "/")[2]
+            taskDefinition := strings.Split(*task.TaskDefinitionArn, "/")[1]
+            runtime := *task.Containers[0].RuntimeId
+            tasks = append(tasks, fmt.Sprintf("%s | %s | %s", taskId, taskDefinition, runtime)) 
+        }
     }
 
     var taskInfo = strings.Split(SelectTask(tasks), " | ")
@@ -92,11 +99,13 @@ func RunExecuteCommand(p *Execs) {
         Command: &command,
     })
     if err != nil {
+        p.err = err
         log.Fatalf("Failed to execute command, %v", err)
     }
 
     session, err := json.Marshal(output.Session)
     if err != nil {
+        p.err = err
         log.Fatalf("Json marshal for session is wrong, %v", err)
     }
 
@@ -106,6 +115,7 @@ func RunExecuteCommand(p *Execs) {
     }
     targetJson, err := json.Marshal(ssmTarget)
     if err != nil {
+        p.err = err
         log.Fatalf("Json marshal for ssmTarget is wrong, %v", err)
     }
 
@@ -114,18 +124,16 @@ func RunExecuteCommand(p *Execs) {
 	cmd.Stdout = os.Stdout
     cmd.Stderr = os.Stderr
 
-	// sigs := make(chan os.Signal, 1)
-	// signal.Notify(sigs, os.Interrupt, syscall.SIGINT)
-	// go func() {
-	// 	for {
-	// 		select {
-	// 		case <-sigs:
-	// 		}
-	// 	}
-	// }()
-	// defer close(sigs)
+	s := make(chan os.Signal, 1)
+	signal.Notify(s, os.Interrupt, syscall.SIGINT)
+	go func() {
+        <- s
+	}()
+	defer close(s)
 
     if err := cmd.Run(); err != nil {
-		fmt.Println(err)
+        p.err = err
+		log.Fatal("Failed to run session-manager-plugin, is it installed?")
+        log.Fatal(err)
 	}
 }

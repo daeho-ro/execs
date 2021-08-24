@@ -1,7 +1,11 @@
 package main
 
 import (
+	"log"
+	"os"
+
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/AlecAivazis/survey/v2/terminal"
 )
 
 func SelectCluster(clusters []string) string {
@@ -12,7 +16,13 @@ func SelectCluster(clusters []string) string {
 	}
 
 	var cluster string
-	survey.AskOne(prompt, &cluster)
+	err := survey.AskOne(prompt, &cluster)
+	if err == terminal.InterruptErr {
+		log.Fatal("interrupted")
+		os.Exit(0)
+	} else if err != nil {
+		panic(err)
+	}
 
 	return cluster
 }
@@ -25,7 +35,13 @@ func SelectTask(tasks []string) string {
 	}
 
 	var task string
-	survey.AskOne(prompt, &task, survey.WithPageSize(10))
+	err := survey.AskOne(prompt, &task)
+	if err == terminal.InterruptErr {
+		log.Fatal("interrupted")
+		os.Exit(0)
+	} else if err != nil {
+		panic(err)
+	}
 
 	return task
 }
