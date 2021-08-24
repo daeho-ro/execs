@@ -16,50 +16,53 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
-type session struct {
-
+type Execs struct {
+    client   ecs.Client
+    cluster  string
+    task     string
+    runtime  string
+    region   string
+    endpoint string
 }
 
-func GetEcsSession(region string) (*ecs.Client) {
+func GetEcsSession(p *Execs) {
 
-    cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+    cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(p.region))
     if err != nil {
         log.Fatalf("Unable to load SDK config, %v", err)
     }
 
-    svc := ecs.NewFromConfig(cfg)
-
-	return svc
+    p.client = *ecs.NewFromConfig(cfg)
 }
 
-func GetClusters(svc *ecs.Client) ([]string) {
+func GetCluster(p *Execs) {
 
-    listClusters, err := svc.ListClusters(context.TODO(), &ecs.ListClustersInput{})
+    listClusters, err := p.client.ListClusters(context.TODO(), &ecs.ListClustersInput{})
     if err != nil {
         log.Fatalf("Failed to list ecs clusters, %v", err)
     }
 
     var clusters []string
     for _, arn := range listClusters.ClusterArns {
-        clusters = append(clusters, strings.Split(arn, "/")[1])
+        clusterName := strings.Split(arn, "/")[1]
+        clusters = append(clusters, clusterName)
     }
 
-    return clusters
+    p.cluster = SelectCluster(clusters)
 }
 
+func GetTask(p *Execs) {
 
-func GetTasks(svc *ecs.Client, cluster string) ([]string) {
-
-    listTasks, err := svc.ListTasks(context.TODO(), &ecs.ListTasksInput{
-        Cluster: &cluster,
+    listTasks, err := p.client.ListTasks(context.TODO(), &ecs.ListTasksInput{
+        Cluster: &p.cluster,
     })
     if err != nil {
         log.Fatalf("Failed to list ecs tasks, %v", err)
     }
 
-    listTaskDetails, err := svc.DescribeTasks(context.TODO(), &ecs.DescribeTasksInput{
+    listTaskDetails, err := p.client.DescribeTasks(context.TODO(), &ecs.DescribeTasksInput{
         Tasks: listTasks.TaskArns,
-        Cluster: &cluster,
+        Cluster: &p.cluster,
     })
     if err != nil {
         log.Fatalf("Failed to describe ecs tasks, %v", err)
@@ -67,49 +70,46 @@ func GetTasks(svc *ecs.Client, cluster string) ([]string) {
 
     var tasks []string
     for _, task := range listTaskDetails.Tasks {
-        tasks = append(tasks, fmt.Sprintf("%s | %s | %s", strings.Split(*task.TaskArn, "/")[2], strings.Split(*task.TaskDefinitionArn, "/")[1], *task.Containers[0].RuntimeId))
+        taskId := strings.Split(*task.TaskArn, "/")[2]
+        taskDefinition := strings.Split(*task.TaskDefinitionArn, "/")[1]
+        runtime := *task.Containers[0].RuntimeId
+        tasks = append(tasks, fmt.Sprintf("%s | %s | %s", taskId, taskDefinition, runtime))
     }
 
-    return tasks
+    var taskInfo = strings.Split(SelectTask(tasks), " | ")
+    p.task    = taskInfo[0]
+    p.runtime = taskInfo[2]
 }
 
-func RunExecuteCommand(svc *ecs.Client, cluster string, task string, runtime string) {
+func RunExecuteCommand(p *Execs) {
 
     var command = "/bin/sh"
 
-    output, err := svc.ExecuteCommand(context.TODO(), &ecs.ExecuteCommandInput{
-        Cluster: &cluster,
-        Task: &task,
+    output, err := p.client.ExecuteCommand(context.TODO(), &ecs.ExecuteCommandInput{
+        Cluster: &p.cluster,
+        Task: &p.task,
         Interactive: true,
         Command: &command,
     })
     if err != nil {
-        log.Fatalf("Failed to describe ecs tasks, %v", err)
+        log.Fatalf("Failed to execute command, %v", err)
     }
 
     session, err := json.Marshal(output.Session)
     if err != nil {
-        log.Fatalf("something wrong, %v", err)
+        log.Fatalf("Json marshal for session is wrong, %v", err)
     }
 
-
-    var target = fmt.Sprintf("ecs:%s_%s_%s", cluster, task, runtime)
+    var target = fmt.Sprintf("ecs:%s_%s_%s", p.cluster, p.task, p.runtime)
     var ssmTarget = ssm.StartSessionInput{
         Target: &target,
     }
     targetJson, err := json.Marshal(ssmTarget)
     if err != nil {
-        log.Fatalf("something wrong, %v", err)
+        log.Fatalf("Json marshal for ssmTarget is wrong, %v", err)
     }
 
-    // var args = fmt.Sprintf(
-
-    // cmd := exec.Command("aws", "ecs", "execute-command", "--cluster", cluster, "--task", task, "--command", command, "--interactive")
-    // cmd.Stderr = os.Stderr
-	// cmd.Stdout = os.Stdout
-	// cmd.Stdin = os.Stdin
-
-    cmd := exec.Command("session-manager-plugin", string(session), "ap-northeast-2", "StartSession", "", string(targetJson), "https://ssm.ap-northeast-2.amazonaws.com")
+    cmd := exec.Command("session-manager-plugin", string(session), p.region, "StartSession", "", string(targetJson), p.endpoint)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
     cmd.Stderr = os.Stderr
