@@ -1,4 +1,4 @@
-package main
+package ecs
 
 import (
 	"context"
@@ -18,31 +18,81 @@ import (
 
 type Execs struct {
     client   ecs.Client
+    step     chan string
+    err      chan error
+    quit     chan bool
     cluster  string
     task     string
     runtime  string
     region   string
     endpoint string
-    err      error
+    command  string
 }
 
-func GetEcsSession(p *Execs) {
+func Start() {
+
+    p := &Execs{
+        step: make(chan string, 1),
+        err: make(chan error, 1),
+        quit: make(chan bool, 1),
+        region : "ap-northeast-2",
+    }
+
+    p.loop()
+}
+
+func (p *Execs) loop() {
+
+	go func() {
+		for {
+			select {
+			case step := <- p.step:
+				switch step {
+                case "getEcsSession":
+                    p.getEcsSession()
+				case "getCluster":
+					p.getCluster()
+				case "getTask":
+					p.getTask()
+				case "runExecuteCommand":
+					p.runExecuteCommand()
+				default:
+					return
+				}
+			case err := <- p.err:
+				log.Fatal(err)
+				os.Exit(1)
+			}
+		}
+	}()
+
+    p.step <- "getEcsSession"
+
+    <- p.quit
+}
+
+func (p *Execs) getEcsSession() {
 
     cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(p.region))
     if err != nil {
-        p.err = err
+        p.err <- err
         log.Fatalf("Unable to load SDK config, %v", err)
     }
 
     p.client = *ecs.NewFromConfig(cfg)
+    p.step <- "getCluster"
 }
 
-func GetCluster(p *Execs) {
+func (p *Execs) getCluster() {
 
     listClusters, err := p.client.ListClusters(context.TODO(), &ecs.ListClustersInput{})
     if err != nil {
-        p.err = err
+        p.err <- err
         log.Fatalf("Failed to list ecs clusters, %v", err)
+    }
+    if len(listClusters.ClusterArns) == 0 {
+        log.Printf("There is no ECS clusters in the %s region", p.region)
+        p.quit <- true
     }
 
     var clusters []string
@@ -52,16 +102,21 @@ func GetCluster(p *Execs) {
     }
 
     p.cluster = SelectCluster(clusters)
+    p.step <- "getTask"
 }
 
-func GetTask(p *Execs) {
+func (p *Execs) getTask() {
 
     listTasks, err := p.client.ListTasks(context.TODO(), &ecs.ListTasksInput{
         Cluster: &p.cluster,
     })
     if err != nil {
-        p.err = err
+        p.err <- err
         log.Fatalf("Failed to list ecs tasks, %v", err)
+    }
+    if len(listTasks.TaskArns) == 0 {
+        log.Printf("There is no ECS Task in the cluster %s", p.cluster)
+        p.step <- "getCluster"
     }
 
     listTaskDetails, err := p.client.DescribeTasks(context.TODO(), &ecs.DescribeTasksInput{
@@ -69,7 +124,7 @@ func GetTask(p *Execs) {
         Cluster: &p.cluster,
     })
     if err != nil {
-        p.err = err
+        p.err <- err
         log.Fatalf("Failed to describe ecs tasks, %v", err)
     }
 
@@ -82,30 +137,36 @@ func GetTask(p *Execs) {
             tasks = append(tasks, fmt.Sprintf("%s | %s | %s", taskId, taskDefinition, runtime)) 
         }
     }
+    if len(tasks) == 0 {
+        log.Printf("There is no running ECS Task in the cluster %s", p.cluster)
+        p.step <- "getCluster"
+    }
 
     var taskInfo = strings.Split(SelectTask(tasks), " | ")
-    p.task    = taskInfo[0]
+    p.task = taskInfo[0]
     p.runtime = taskInfo[2]
+    p.step <- "runExecuteCommand"
 }
 
-func RunExecuteCommand(p *Execs) {
+func (p *Execs) runExecuteCommand() {
 
-    var command = "/bin/sh"
+    p.command  = "/bin/sh"
+    p.endpoint = fmt.Sprintf("https://ssm.%s.amazonaws.com", p.region)
 
     output, err := p.client.ExecuteCommand(context.TODO(), &ecs.ExecuteCommandInput{
         Cluster: &p.cluster,
         Task: &p.task,
         Interactive: true,
-        Command: &command,
+        Command: &p.command,
     })
     if err != nil {
-        p.err = err
+        p.err <- err
         log.Fatalf("Failed to execute command, %v", err)
     }
 
     session, err := json.Marshal(output.Session)
     if err != nil {
-        p.err = err
+        p.err <- err
         log.Fatalf("Json marshal for session is wrong, %v", err)
     }
 
@@ -115,7 +176,7 @@ func RunExecuteCommand(p *Execs) {
     }
     targetJson, err := json.Marshal(ssmTarget)
     if err != nil {
-        p.err = err
+        p.err <- err
         log.Fatalf("Json marshal for ssmTarget is wrong, %v", err)
     }
 
@@ -132,8 +193,10 @@ func RunExecuteCommand(p *Execs) {
 	defer close(s)
 
     if err := cmd.Run(); err != nil {
-        p.err = err
+        p.err <- err
 		log.Fatal("Failed to run session-manager-plugin, is it installed?")
         log.Fatal(err)
 	}
+
+    p.quit <- true
 }

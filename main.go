@@ -1,14 +1,8 @@
 package main
 
-func main() {
+import "github.com/daeho-ro/execs/internal"
 
-    p := &Execs{
-        region : "ap-northeast-2",
-        endpoint : "https://ssm.ap-northeast-2.amazonaws.com",
-    }
+func main() {
     
-    GetEcsSession(p)
-    GetCluster(p)
-    GetTask(p)
-    RunExecuteCommand(p)
+    ecs.Start()
 }
