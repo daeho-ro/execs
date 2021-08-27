@@ -3,8 +3,15 @@ builds:
   - env: [CGO_ENABLED=0]
     goos:
       - linux
+      - darwin
       - windows
     goarch:
       - amd64
+      - arm64
+    goarn:
+      - 7
+    ignore:
+      - goos: windows
+        goarch: arm64
 archives:
 - format: binary
