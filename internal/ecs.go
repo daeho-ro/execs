@@ -29,7 +29,7 @@ type execs struct {
 	command  string
 }
 
-// Starting point
+// Start ...
 func Start() {
 
 	p := &execs{
@@ -147,10 +147,10 @@ func (p *execs) getTask() {
 
 		for _, task := range listTaskDetails.Tasks {
 			if *task.LastStatus == "RUNNING" {
-				taskId := strings.Split(*task.TaskArn, "/")[2]
+				taskID := strings.Split(*task.TaskArn, "/")[2]
 				taskDefinition := strings.Split(*task.TaskDefinitionArn, "/")[1]
 				runtime := strings.Split(*task.Containers[0].RuntimeId, "-")[1]
-				tasks = append(tasks, fmt.Sprintf("%s | %s | %s", taskId, taskDefinition, runtime))
+				tasks = append(tasks, fmt.Sprintf("%s | %s | %s", taskID, taskDefinition, runtime))
 			}
 		}
 		if len(tasks) == 0 {
@@ -191,13 +191,13 @@ func (p *execs) runExecuteCommand() {
 	var ssmTarget = ssm.StartSessionInput{
 		Target: &target,
 	}
-	targetJson, err := json.Marshal(ssmTarget)
+	targetJSON, err := json.Marshal(ssmTarget)
 	if err != nil {
 		log.Fatalf("Json marshal for ssmTarget is wrong, %v", err)
 		p.err <- err
 	}
 
-	cmd := exec.Command("session-manager-plugin", string(session), p.region, "StartSession", "", string(targetJson), p.endpoint)
+	cmd := exec.Command("session-manager-plugin", string(session), p.region, "StartSession", "", string(targetJSON), p.endpoint)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
