@@ -75,8 +75,8 @@ func (p *Execs) getEcsSession() {
 
     cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(p.region))
     if err != nil {
-        p.err <- err
         log.Fatalf("Unable to load SDK config, %v", err)
+        p.err <- err
     }
 
     p.client = *ecs.NewFromConfig(cfg)
@@ -85,20 +85,24 @@ func (p *Execs) getEcsSession() {
 
 func (p *Execs) getCluster() {
 
-    listClusters, err := p.client.ListClusters(context.TODO(), &ecs.ListClustersInput{})
-    if err != nil {
-        p.err <- err
-        log.Fatalf("Failed to list ecs clusters, %v", err)
-    }
-    if len(listClusters.ClusterArns) == 0 {
-        log.Printf("There is no ECS clusters in the %s region", p.region)
-        p.quit <- true
+    var clusters []string
+    pager := ecs.NewListClustersPaginator(&p.client, &ecs.ListClustersInput{})
+
+    for pager.HasMorePages() {
+        page, err := pager.NextPage(context.TODO())
+        if err != nil {
+            log.Fatalf("failed to get a page, %v", err)
+            p.err <- err
+        }
+        for _, arn := range page.ClusterArns {
+            clusterName := strings.Split(arn, "/")[1]
+            clusters = append(clusters, clusterName)
+        }
     }
 
-    var clusters []string
-    for _, arn := range listClusters.ClusterArns {
-        clusterName := strings.Split(arn, "/")[1]
-        clusters = append(clusters, clusterName)
+    if len(clusters) == 0 {
+        log.Printf("There is no ECS clusters in the %s region", p.region)
+        p.quit <- true
     }
 
     p.cluster = SelectCluster(clusters)
@@ -107,44 +111,56 @@ func (p *Execs) getCluster() {
 
 func (p *Execs) getTask() {
 
-    listTasks, err := p.client.ListTasks(context.TODO(), &ecs.ListTasksInput{
+    var taskArns []string
+    pager := ecs.NewListTasksPaginator(&p.client, &ecs.ListTasksInput{
         Cluster: &p.cluster,
     })
-    if err != nil {
-        p.err <- err
-        log.Fatalf("Failed to list ecs tasks, %v", err)
-    }
-    if len(listTasks.TaskArns) == 0 {
-        log.Printf("There is no ECS Task in the cluster %s", p.cluster)
-        p.step <- "getCluster"
-    }
 
-    listTaskDetails, err := p.client.DescribeTasks(context.TODO(), &ecs.DescribeTasksInput{
-        Tasks: listTasks.TaskArns,
-        Cluster: &p.cluster,
-    })
-    if err != nil {
-        p.err <- err
-        log.Fatalf("Failed to describe ecs tasks, %v", err)
+    for pager.HasMorePages() {
+        page, err := pager.NextPage(context.TODO())
+        if err != nil {
+            log.Fatalf("failed to get a page, %v", err)
+            p.err <- err
+        }
+        taskArns = append(taskArns, page.TaskArns...)
     }
 
     var tasks []string
-    for _, task := range listTaskDetails.Tasks {
-        if *task.LastStatus == "RUNNING" {
-            taskId := strings.Split(*task.TaskArn, "/")[2]
-            taskDefinition := strings.Split(*task.TaskDefinitionArn, "/")[1]
-            runtime := *task.Containers[0].RuntimeId
-            tasks = append(tasks, fmt.Sprintf("%s | %s | %s", taskId, taskDefinition, runtime)) 
+    for i := 0; i < len(taskArns) / 100 + 1; i++ {
+
+        var slice []string
+        if i == 0 {
+            slice = taskArns[0: len(taskArns) % 100]
+        } else {
+            slice = taskArns[i * 100: (i + 1) * 100]
         }
-    }
-    if len(tasks) == 0 {
-        log.Printf("There is no running ECS Task in the cluster %s", p.cluster)
-        p.step <- "getCluster"
+
+        listTaskDetails, err := p.client.DescribeTasks(context.TODO(), &ecs.DescribeTasksInput{
+            Tasks: slice,
+            Cluster: &p.cluster,
+        })
+        if err != nil {
+            p.err <- err
+            log.Fatalf("Failed to describe ecs tasks, %v", err)
+        }
+
+        for _, task := range listTaskDetails.Tasks {
+            if *task.LastStatus == "RUNNING" {
+                taskId := strings.Split(*task.TaskArn, "/")[2]
+                taskDefinition := strings.Split(*task.TaskDefinitionArn, "/")[1]
+                runtime := strings.Split(*task.Containers[0].RuntimeId, "-")[1]
+                tasks = append(tasks, fmt.Sprintf("%s | %s | %s", taskId, taskDefinition, runtime)) 
+            }
+        }
+        if len(tasks) == 0 {
+            log.Printf("There is no running ECS Task in the cluster %s", p.cluster)
+            p.step <- "getCluster"
+        }
     }
 
     var taskInfo = strings.Split(SelectTask(tasks), " | ")
     p.task = taskInfo[0]
-    p.runtime = taskInfo[2]
+    p.runtime = fmt.Sprintf("%s-%s", p.task, taskInfo[2])
     p.step <- "runExecuteCommand"
 }
 
@@ -166,8 +182,8 @@ func (p *Execs) runExecuteCommand() {
 
     session, err := json.Marshal(output.Session)
     if err != nil {
-        p.err <- err
         log.Fatalf("Json marshal for session is wrong, %v", err)
+        p.err <- err
     }
 
     var target = fmt.Sprintf("ecs:%s_%s_%s", p.cluster, p.task, p.runtime)
@@ -176,8 +192,8 @@ func (p *Execs) runExecuteCommand() {
     }
     targetJson, err := json.Marshal(ssmTarget)
     if err != nil {
-        p.err <- err
         log.Fatalf("Json marshal for ssmTarget is wrong, %v", err)
+        p.err <- err
     }
 
     cmd := exec.Command("session-manager-plugin", string(session), p.region, "StartSession", "", string(targetJson), p.endpoint)
@@ -193,9 +209,8 @@ func (p *Execs) runExecuteCommand() {
 	defer close(s)
 
     if err := cmd.Run(); err != nil {
+        log.Fatal("Failed to run session-manager-plugin, is it installed?")
         p.err <- err
-		log.Fatal("Failed to run session-manager-plugin, is it installed?")
-        log.Fatal(err)
 	}
 
     p.quit <- true
