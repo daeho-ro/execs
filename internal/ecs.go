@@ -16,7 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
-type Execs struct {
+type execs struct {
 	client   ecs.Client
 	step     chan string
 	err      chan error
@@ -29,9 +29,10 @@ type Execs struct {
 	command  string
 }
 
+// Starting point
 func Start() {
 
-	p := &Execs{
+	p := &execs{
 		step:   make(chan string, 1),
 		err:    make(chan error, 1),
 		quit:   make(chan bool, 1),
@@ -41,7 +42,7 @@ func Start() {
 	p.loop()
 }
 
-func (p *Execs) loop() {
+func (p *execs) loop() {
 
 	go func() {
 		for {
@@ -71,7 +72,7 @@ func (p *Execs) loop() {
 	<-p.quit
 }
 
-func (p *Execs) getEcsSession() {
+func (p *execs) getEcsSession() {
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(p.region))
 	if err != nil {
@@ -83,7 +84,7 @@ func (p *Execs) getEcsSession() {
 	p.step <- "getCluster"
 }
 
-func (p *Execs) getCluster() {
+func (p *execs) getCluster() {
 
 	var clusters []string
 	pager := ecs.NewListClustersPaginator(&p.client, &ecs.ListClustersInput{})
@@ -109,7 +110,7 @@ func (p *Execs) getCluster() {
 	p.step <- "getTask"
 }
 
-func (p *Execs) getTask() {
+func (p *execs) getTask() {
 
 	var taskArns []string
 	pager := ecs.NewListTasksPaginator(&p.client, &ecs.ListTasksInput{
@@ -164,7 +165,7 @@ func (p *Execs) getTask() {
 	p.step <- "runExecuteCommand"
 }
 
-func (p *Execs) runExecuteCommand() {
+func (p *execs) runExecuteCommand() {
 
 	p.command = "/bin/sh"
 	p.endpoint = fmt.Sprintf("https://ssm.%s.amazonaws.com", p.region)
