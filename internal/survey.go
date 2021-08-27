@@ -8,7 +8,7 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 )
 
-func SelectCluster(clusters []string) string {
+func selectCluster(clusters []string) string {
 
 	prompt := &survey.Select{
 		Message: "Select ECS Cluster",
@@ -27,7 +27,7 @@ func SelectCluster(clusters []string) string {
 	return cluster
 }
 
-func SelectTask(tasks []string) string {
+func selectTask(tasks []string) string {
 
 	prompt := &survey.Select{
 		Message: "Select ECS Task",
