@@ -8,6 +8,26 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 )
 
+func selectRegion(regions []string) string {
+
+	prompt := &survey.Select{
+		Message: "Select Region",
+		Options: regions,
+		Default: "ap-northeast-2",
+	}
+
+	var region string
+	err := survey.AskOne(prompt, &region)
+	if err == terminal.InterruptErr {
+		log.Fatal("interrupted")
+		os.Exit(0)
+	} else if err != nil {
+		panic(err)
+	}
+
+	return region
+}
+
 func selectCluster(clusters []string) string {
 
 	prompt := &survey.Select{

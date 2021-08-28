@@ -8,10 +8,12 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"sort"
 	"strings"
 	"syscall"
 
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
@@ -49,6 +51,8 @@ func (p *execs) loop() {
 			select {
 			case step := <-p.step:
 				switch step {
+				case "getRegion":
+					p.getRegion()
 				case "getEcsSession":
 					p.getEcsSession()
 				case "getCluster":
@@ -67,9 +71,34 @@ func (p *execs) loop() {
 		}
 	}()
 
-	p.step <- "getEcsSession"
+	p.step <- "getRegion"
 
 	<-p.quit
+}
+
+func (p *execs) getRegion() {
+
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(p.region))
+	if err != nil {
+		log.Fatalf("Unable to load SDK config, %v", err)
+		p.err <- err
+	}
+
+	ec2Client := *ec2.NewFromConfig(cfg)
+	regionNames, err := ec2Client.DescribeRegions(context.TODO(), &ec2.DescribeRegionsInput{})
+	if err != nil {
+		log.Fatalf("Failed to get the regions, %v", err)
+		p.err <- err
+	}
+
+	var regions []string
+	for _, list := range regionNames.Regions {
+		regions = append(regions, *list.RegionName)
+	}
+	sort.Strings(regions)
+
+	p.region = selectRegion(regions)
+	p.step <- "getEcsSession"
 }
 
 func (p *execs) getEcsSession() {
@@ -86,13 +115,13 @@ func (p *execs) getEcsSession() {
 
 func (p *execs) getCluster() {
 
-	var clusters []string
+	clusters := []string{".."}
 	pager := ecs.NewListClustersPaginator(&p.client, &ecs.ListClustersInput{})
 
 	for pager.HasMorePages() {
 		page, err := pager.NextPage(context.TODO())
 		if err != nil {
-			log.Fatalf("failed to get a page, %v", err)
+			log.Fatalf("Failed to get a page of the ECS clusters, %v", err)
 			p.err <- err
 		}
 		for _, arn := range page.ClusterArns {
@@ -101,12 +130,17 @@ func (p *execs) getCluster() {
 		}
 	}
 
-	if len(clusters) == 0 {
+	if len(clusters) == 1 {
 		log.Printf("There is no ECS clusters in the %s region", p.region)
 		p.quit <- true
 	}
 
-	p.cluster = selectCluster(clusters)
+	selected := selectCluster(clusters)
+	if selected == ".." {
+		p.step <- "getRegion"
+		return
+	}
+	p.cluster = selected
 	p.step <- "getTask"
 }
 
@@ -120,13 +154,18 @@ func (p *execs) getTask() {
 	for pager.HasMorePages() {
 		page, err := pager.NextPage(context.TODO())
 		if err != nil {
-			log.Fatalf("failed to get a page, %v", err)
+			log.Fatalf("Failed to get a page of the ECS tasks, %v", err)
 			p.err <- err
 		}
 		taskArns = append(taskArns, page.TaskArns...)
 	}
+	if len(taskArns) == 1 {
+		log.Printf("There is no ECS Task in the cluster %s", p.cluster)
+		p.step <- "getCluster"
+		return
+	}
 
-	var tasks []string
+	tasks := []string{".."}
 	for i := 0; i < len(taskArns)/100+1; i++ {
 
 		var slice []string
@@ -153,13 +192,19 @@ func (p *execs) getTask() {
 				tasks = append(tasks, fmt.Sprintf("%s | %s | %s", taskID, taskDefinition, runtime))
 			}
 		}
-		if len(tasks) == 0 {
-			log.Printf("There is no running ECS Task in the cluster %s", p.cluster)
-			p.step <- "getCluster"
-		}
+	}
+	if len(tasks) == 0 {
+		log.Printf("There is no running ECS Task in the cluster %s", p.cluster)
+		p.step <- "getCluster"
+		return
 	}
 
-	var taskInfo = strings.Split(selectTask(tasks), " | ")
+	selected := selectTask(tasks)
+	if selected == ".." {
+		p.step <- "getCluster"
+		return
+	}
+	var taskInfo = strings.Split(selected, " | ")
 	p.task = taskInfo[0]
 	p.runtime = fmt.Sprintf("%s-%s", p.task, taskInfo[2])
 	p.step <- "runExecuteCommand"

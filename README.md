@@ -6,5 +6,36 @@
 [![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fdaeho-ro%2Fexecs&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com)
 ![GitHub](https://img.shields.io/github/license/daeho-ro/execs)
 
+## Introduction
 
-[ecsgo](https://github.com/tedsmitt/ecsgo)를 참고하여 개인적인 목적에 맞게 go를 공부하면서 개발하고 있는 프로그램으로, ECS의 작업에 대한 세션을 제공하는 프로그램 입니다.
+**execs** is a program that helps you to access the ECS task interactively by using the `ssm` session-manager-plugin. It uses the ECS execute command API with the command `/bin/sh`. It also highly refer the similar and pre-existing program [ecsgo](https://github.com/tedsmitt/ecsgo) but uses the AWS SDK for GO v2. Since the motivation for developing the program is personal purpose to study about Golang, the program could be unstable.
+
+Recently, I noticed that the session-manager-plugin freeze sometimes when I connect to some ECS task. In this case, you should close the session from the AWS SSM session manager console properly. If not, the session will survive and counted the number of session for the task, that is limited by 2.
+
+To use the program:
+- download the binary that is fit to your OS and CPU architecture
+- place it to the directory in your PATH or add the PATH to the program
+- just run by `execs`
+
+## Required permissions
+
+This program use the AWS IAM permissions as follows:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "execs-iam-permissions",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeRegions",
+                "ecs:DescribeTasks",
+                "ecs:ExecuteCommand",
+                "ecs:ListClusters",
+                "ecs:ListTasks"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
