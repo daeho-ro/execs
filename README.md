@@ -1,6 +1,7 @@
 # execs
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/daeho-ro/execs.svg)](https://pkg.go.dev/github.com/daeho-ro/execs)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/daeho-ro/execs)
 ![build](https://github.com/daeho-ro/execs/actions/workflows/go.yml/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/daeho-ro/execs)](https://goreportcard.com/report/github.com/daeho-ro/execs)
 [![CodeFactor](https://www.codefactor.io/repository/github/daeho-ro/execs/badge/main)](https://www.codefactor.io/repository/github/daeho-ro/execs/overview/main)
