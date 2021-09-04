@@ -15,6 +15,7 @@ To use the program:
 - download the binary that is fit to your OS and CPU architecture
 - place it to the directory in your PATH or add the PATH to the program
 - just run `execs`
+- for the China regions, `execs china`
 
 I use the program with the AWS environment variables that could be obtained from the AWS SSO when you use the organizational and consolidated accounts or AWS STS when you use the assume role. Once you get the environment variables, export it as follows:
 ```
@@ -25,7 +26,7 @@ export AWS_SESSION_TOKEN="<Long_Token>"
 In addition, you can also use the default profile of the AWS credentials (~/.aws/credentials, ~/.aws/config) which can be set by manual or the `configure` command by the AWS CLI. The other profils are not yet supported.
 
 ## To-do
-- [ ] China support
+- [x] China support
 - [ ] Profile support
 
 ## Required permissions

@@ -8,12 +8,12 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 )
 
-func selectRegion(regions []string) string {
+func selectRegion(regions []string, baseRegion string) string {
 
 	prompt := &survey.Select{
 		Message: "Select Region",
 		Options: regions,
-		Default: "ap-northeast-2",
+		Default: baseRegion,
 	}
 
 	var region string

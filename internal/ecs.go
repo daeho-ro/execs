@@ -31,14 +31,19 @@ type execs struct {
 	command  string
 }
 
-// Start ...
+// Start : Let's Go!
 func Start() {
+
+	region := regionGlobal
+	if len(os.Args) > 1 && os.Args[1] == "china" {
+		region = regionChina
+	}
 
 	p := &execs{
 		step:   make(chan string, 1),
 		err:    make(chan error, 1),
 		quit:   make(chan bool, 1),
-		region: "ap-northeast-2",
+		region: region,
 	}
 
 	p.loop()
@@ -97,7 +102,7 @@ func (p *execs) getRegion() {
 	}
 	sort.Strings(regions)
 
-	p.region = selectRegion(regions)
+	p.region = selectRegion(regions, p.region)
 	p.step <- "getEcsSession"
 }
 
