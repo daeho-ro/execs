@@ -174,10 +174,11 @@ func (p *execs) getTask() {
 	for i := 0; i < len(taskArns)/100+1; i++ {
 
 		var slice []string
+		var tail int = len(taskArns) % 100
 		if i == 0 {
-			slice = taskArns[0 : len(taskArns)%100]
+			slice = taskArns[0:tail]
 		} else {
-			slice = taskArns[i*100 : (i+1)*100]
+			slice = taskArns[tail+1+(i-1)*100 : tail+i*100]
 		}
 
 		listTaskDetails, err := p.client.DescribeTasks(context.TODO(), &ecs.DescribeTasksInput{
