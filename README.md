@@ -1,34 +1,40 @@
 # execs
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/daeho-ro/execs.svg)](https://pkg.go.dev/github.com/daeho-ro/execs)
-![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/daeho-ro/execs)
-![build](https://github.com/daeho-ro/execs/actions/workflows/go.yml/badge.svg)
+[![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/daeho-ro/execs)](.)
+[![build](https://github.com/daeho-ro/execs/actions/workflows/go.yml/badge.svg)](https://github.com/daeho-ro/execs/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/daeho-ro/execs)](https://goreportcard.com/report/github.com/daeho-ro/execs)
 [![CodeFactor](https://www.codefactor.io/repository/github/daeho-ro/execs/badge/main)](https://www.codefactor.io/repository/github/daeho-ro/execs/overview/main)
 [![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fdaeho-ro%2Fexecs&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com)
-![GitHub](https://img.shields.io/github/license/daeho-ro/execs)
+[![GitHub](https://img.shields.io/github/license/daeho-ro/execs)](.)
+[![Brew Version](https://img.shields.io/badge/dynamic/json.svg?url=https://raw.githubusercontent.com/daeho-ro/homebrew-tap/master/Info/execs.json&query=$.version&label=homebrew)](.)
+[![Choco version](https://img.shields.io/chocolatey/v/execs)](https://community.chocolatey.org/packages/execs)
 
 ## Introduction
 
 **execs** is a program that helps you to access the ECS task interactively by using the `ssm` session-manager-plugin. It uses the ECS execute command API with the command `/bin/sh`. It also highly refer the similar and pre-existing program [ecsgo](https://github.com/tedsmitt/ecsgo) but uses the AWS SDK for GO v2. Since the motivation for developing the program is personal purpose to study about Golang, the program could be unstable.
 
-To use the program:
-- download the binary that is fit to your OS and CPU architecture
-- place it to the directory in your PATH or add the PATH to the program
-- just run `execs`
-- for the China regions, `execs china`
-
-I use the program with the AWS environment variables that could be obtained from the AWS SSO when you use the organizational and consolidated accounts or AWS STS when you use the assume role. Once you get the environment variables, export it as follows:
+## Installation
+From the release, you can download the package directly.
+### MacOS
+You can use `brew` to install the package.
+```bash
+brew tap daeho-ro/repo
+brew install execs
 ```
-export AWS_ACCESS_KEY_ID="ASIAXXXXXXXXXXXXXXXX"
-export AWS_SECRET_ACCESS_KEY="<Secrets>"
-export AWS_SESSION_TOKEN="<Long_Token>"
-```
-In addition, you can also use the default profile of the AWS credentials (~/.aws/credentials, ~/.aws/config) which can be set by manual or the `configure` command by the AWS CLI. The other profils are not yet supported.
 
-## To-do
-- [x] China support
-- [ ] Profile support
+### Windows
+You can use `chocolatey` to install the package.
+```bash
+choco install execs
+```
+
+## AWS Profile
+In order to use `execs`, you need to pass the AWS credentials. As far as I know, the best way to do it is using `aws-vault`.
+```bash
+aws-vault exec <profile> -- execs
+```
+Please check the [aws-vault](https://github.com/99designs/aws-vault) page.
 
 ## Required permissions
 
