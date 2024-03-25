@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
+	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 )
 
@@ -34,9 +35,9 @@ type execs struct {
 // Start : Let's Go!
 func Start() {
 
-	region := regionGlobal
-	if len(os.Args) > 1 && os.Args[1] == "china" {
-		region = regionChina
+	region := os.Getenv("AWS_REGION")
+	if len(region) == 0 {
+		region = "ap-northeast-2"
 	}
 
 	p := &execs{
@@ -154,6 +155,7 @@ func (p *execs) getTask() {
 	var taskArns []string
 	pager := ecs.NewListTasksPaginator(&p.client, &ecs.ListTasksInput{
 		Cluster: &p.cluster,
+		DesiredStatus: types.DesiredStatusRunning,
 	})
 
 	for pager.HasMorePages() {
@@ -191,12 +193,10 @@ func (p *execs) getTask() {
 		}
 
 		for _, task := range listTaskDetails.Tasks {
-			if *task.LastStatus == "RUNNING" {
-				taskID := strings.Split(*task.TaskArn, "/")[2]
-				taskDefinition := strings.Split(*task.TaskDefinitionArn, "/")[1]
-				runtime := strings.Split(*task.Containers[0].RuntimeId, "-")[1]
-				tasks = append(tasks, fmt.Sprintf("%s | %s | %s", taskID, taskDefinition, runtime))
-			}
+			createdDt := task.CreatedAt.Format("2006-01-02 15:04:05")
+			taskID := strings.Split(*task.TaskArn, "/")[2]
+			taskDefinition := strings.Split(*task.TaskDefinitionArn, "/")[1]
+			tasks = append(tasks, fmt.Sprintf("%s | %s | %s", createdDt, taskID, taskDefinition))
 		}
 	}
 	if len(tasks) == 0 {
