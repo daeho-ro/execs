@@ -154,7 +154,7 @@ func (p *execs) getTask() {
 
 	var taskArns []string
 	pager := ecs.NewListTasksPaginator(&p.client, &ecs.ListTasksInput{
-		Cluster: &p.cluster,
+		Cluster:       &p.cluster,
 		DesiredStatus: types.DesiredStatusRunning,
 	})
 
@@ -193,10 +193,15 @@ func (p *execs) getTask() {
 		}
 
 		for _, task := range listTaskDetails.Tasks {
-			createdDt := task.CreatedAt.Format("2006-01-02 15:04:05")
-			taskID := strings.Split(*task.TaskArn, "/")[2]
-			taskDefinition := strings.Split(*task.TaskDefinitionArn, "/")[1]
-			tasks = append(tasks, fmt.Sprintf("%s | %s | %s", createdDt, taskID, taskDefinition))
+			for _, container := range task.Containers {
+				createdDt := task.CreatedAt.Format("2006-01-02 15:04:05")
+				runtime := container.RuntimeId
+				if runtime != nil {
+					taskId := *container.RuntimeId
+					taskDefinition := strings.Split(*task.TaskDefinitionArn, "/")[1]
+					tasks = append(tasks, fmt.Sprintf("%s | %-43s | %s", createdDt, taskId, taskDefinition))
+				}
+			}
 		}
 	}
 	if len(tasks) == 0 {
@@ -211,8 +216,8 @@ func (p *execs) getTask() {
 		return
 	}
 	var taskInfo = strings.Split(selected, " | ")
-	p.task = taskInfo[0]
-	p.runtime = fmt.Sprintf("%s-%s", p.task, taskInfo[2])
+	p.task = strings.Split(taskInfo[1], "_")[0]
+	p.runtime = taskInfo[1]
 	p.step <- "runExecuteCommand"
 }
 
@@ -224,6 +229,7 @@ func (p *execs) runExecuteCommand() {
 	output, err := p.client.ExecuteCommand(context.TODO(), &ecs.ExecuteCommandInput{
 		Cluster:     &p.cluster,
 		Task:        &p.task,
+		Container:   &p.runtime,
 		Interactive: true,
 		Command:     &p.command,
 	})
