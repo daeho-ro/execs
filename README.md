@@ -28,6 +28,10 @@ You can use `chocolatey` to install the package.
 ```bash
 choco install execs
 ```
+You also can use `scoop` to install the custom application as follows.
+```bash
+scoop install https://raw.githubusercontent.com/daeho-ro/execs-chocolatey-package/main/execs.json
+```
 
 ## AWS Profile
 In order to use `execs`, you need to pass the AWS credentials. As far as I know, the best way to do it is using `aws-vault`.
