@@ -216,8 +216,8 @@ func (p *execs) getTask() {
 		return
 	}
 	var taskInfo = strings.Split(selected, " | ")
-	p.task = strings.Split(taskInfo[1], "_")[0]
-	p.runtime = taskInfo[1]
+	p.task = strings.Split(taskInfo[1], "-")[0]
+	p.runtime = strings.TrimSpace(strings.Split(taskInfo[1], "-")[1])
 	p.step <- "runExecuteCommand"
 }
 
@@ -229,7 +229,6 @@ func (p *execs) runExecuteCommand() {
 	output, err := p.client.ExecuteCommand(context.TODO(), &ecs.ExecuteCommandInput{
 		Cluster:     &p.cluster,
 		Task:        &p.task,
-		Container:   &p.runtime,
 		Interactive: true,
 		Command:     &p.command,
 	})
