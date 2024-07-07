@@ -19,7 +19,7 @@ From the release, you can download the package directly.
 ### MacOS
 You can use `brew` to install the package.
 ```bash
-brew tap daeho-ro/repo
+brew tap draftbrew/repo
 brew install execs
 ```
 
