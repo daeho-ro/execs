@@ -65,3 +65,22 @@ func selectTask(tasks []string) string {
 
 	return task
 }
+
+func selectContainer(containers []string) string {
+
+	prompt := &survey.Select{
+		Message: "Select Container",
+		Options: containers,
+	}
+
+	var container string
+	err := survey.AskOne(prompt, &container)
+	if err == terminal.InterruptErr {
+		log.Fatal("interrupted")
+		os.Exit(0)
+	} else if err != nil {
+		panic(err)
+	}
+
+	return container
+}

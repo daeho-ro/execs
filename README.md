@@ -5,7 +5,6 @@
 [![build](https://github.com/daeho-ro/execs/actions/workflows/go.yml/badge.svg)](https://github.com/daeho-ro/execs/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/daeho-ro/execs)](https://goreportcard.com/report/github.com/daeho-ro/execs)
 [![CodeFactor](https://www.codefactor.io/repository/github/daeho-ro/execs/badge/main)](https://www.codefactor.io/repository/github/daeho-ro/execs/overview/main)
-[![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fdaeho-ro%2Fexecs&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com)
 [![GitHub](https://img.shields.io/github/license/daeho-ro/execs)](https://github.com/daeho-ro/execs/blob/main/LICENSE)
 [![Brew Version](https://img.shields.io/badge/dynamic/json.svg?url=https://raw.githubusercontent.com/draftbrew/homebrew-tap/master/Info/execs.json&query=$.version&label=homebrew)](https://github.com/draftbrew/homebrew-tap)
 [![Choco version](https://img.shields.io/chocolatey/v/execs)](https://community.chocolatey.org/packages/execs)
